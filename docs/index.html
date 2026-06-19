@@ -11,80 +11,124 @@
 </head>
 <body>
   <div class="app">
-    <header class="header">
-      <div class="header-inner">
-        <h1 class="logo">PageGram</h1>
-        <p class="tagline">Books &rarr; Bite-sized Posts</p>
-      </div>
-    </header>
 
-    <!-- Library of uploaded PDFs -->
-    <section class="library-bar" id="libraryBar" hidden>
-      <div class="library-inner">
-        <div class="library-books" id="libraryBooks"></div>
-        <button class="add-book-btn" id="addBookBtn" title="Add PDF">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-          </svg>
-        </button>
-      </div>
-    </section>
-
-    <!-- Upload Section -->
-    <section class="upload-section" id="uploadSection">
-      <div class="upload-area" id="uploadArea">
-        <div class="upload-icon">
-          <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-            <polyline points="14 2 14 8 20 8"/>
-            <line x1="12" y1="18" x2="12" y2="12"/>
-            <polyline points="9 15 12 12 15 15"/>
-          </svg>
+    <!-- ====== Login Screen ====== -->
+    <section class="login-screen" id="loginScreen">
+      <div class="login-card">
+        <div class="login-logo">
+          <h1 class="logo">PageGram</h1>
+          <p class="login-subtitle">Your personal book-to-posts feed</p>
         </div>
-        <h2>Drop your PDF here</h2>
-        <p>or click to browse</p>
-        <p class="upload-hint">Books, newspapers, articles &mdash; processed in your browser</p>
-        <input type="file" id="fileInput" accept=".pdf" hidden>
-        <input type="file" id="fileInputLibrary" accept=".pdf" hidden>
-      </div>
-      <div class="processing" id="processing" hidden>
-        <div class="processing-spinner"></div>
-        <h3 id="processingTitle">Reading your PDF...</h3>
-        <p id="processingSubtitle">Extracting the good stuff</p>
-        <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
-      </div>
-    </section>
-
-    <!-- Filter Bar -->
-    <section class="filter-bar" id="filterBar" hidden>
-      <div class="filter-inner">
-        <div class="source-info" id="sourceInfo"></div>
-        <div class="filter-chips">
-          <button class="chip active" data-filter="all">&#10022; All</button>
-          <button class="chip" data-filter="funny">&#128516; Funny</button>
-          <button class="chip" data-filter="learning">&#129504; Learning</button>
-          <button class="chip" data-filter="information">&#128240; Info</button>
-          <button class="chip" data-filter="liked">&#10084;&#65039; Liked</button>
-        </div>
-        <div class="filter-row">
-          <div class="smart-toggle">
-            <label class="toggle-label">
-              <input type="checkbox" id="smartFilter" checked>
-              <span class="toggle-slider"></span>
-            </label>
-            <span class="toggle-text">Smart feed</span>
+        <div class="login-form">
+          <div class="input-group">
+            <div class="input-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                <circle cx="12" cy="7" r="4"/>
+              </svg>
+            </div>
+            <input type="text" id="usernameInput" placeholder="Choose a username" maxlength="20" autocomplete="off" spellcheck="false">
           </div>
-          <button class="clear-data-btn" id="clearDataBtn" title="Reset learned preferences">Reset AI</button>
+          <p class="input-hint" id="usernameHint">Letters, numbers & underscores. 3-20 chars.</p>
+          <button class="login-btn" id="loginBtn" disabled>
+            <span id="loginBtnText">Get Started</span>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>
+            </svg>
+          </button>
+        </div>
+        <div class="existing-users" id="existingUsers" hidden>
+          <p class="existing-label">Or continue as:</p>
+          <div class="user-pills" id="userPills"></div>
         </div>
       </div>
     </section>
 
-    <main class="feed" id="feed" hidden>
-      <div class="feed-grid" id="feedGrid"></div>
-    </main>
+    <!-- ====== Main App (hidden until login) ====== -->
+    <div id="mainApp" hidden>
 
-    <div class="empty-state" id="emptyState" hidden>
-      <p>No posts match this filter</p>
+      <header class="header">
+        <div class="header-inner">
+          <h1 class="logo">PageGram</h1>
+          <div class="user-badge" id="userBadge">
+            <div class="user-avatar" id="userAvatar"></div>
+            <span class="user-name" id="userName"></span>
+            <button class="logout-btn" id="logoutBtn" title="Switch user">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                <polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <section class="library-bar" id="libraryBar" hidden>
+        <div class="library-inner">
+          <div class="library-books" id="libraryBooks"></div>
+          <button class="add-book-btn" id="addBookBtn" title="Add PDF">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+          </button>
+        </div>
+      </section>
+
+      <section class="upload-section" id="uploadSection">
+        <div class="welcome-msg" id="welcomeMsg"></div>
+        <div class="upload-area" id="uploadArea">
+          <div class="upload-icon">
+            <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+              <line x1="12" y1="18" x2="12" y2="12"/>
+              <polyline points="9 15 12 12 15 15"/>
+            </svg>
+          </div>
+          <h2>Drop your PDF here</h2>
+          <p>or click to browse</p>
+          <p class="upload-hint">Books, newspapers, articles &mdash; processed in your browser</p>
+          <input type="file" id="fileInput" accept=".pdf" hidden>
+          <input type="file" id="fileInputLibrary" accept=".pdf" hidden>
+        </div>
+        <div class="processing" id="processing" hidden>
+          <div class="processing-spinner"></div>
+          <h3 id="processingTitle">Reading your PDF...</h3>
+          <p id="processingSubtitle">Extracting the good stuff</p>
+          <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+        </div>
+      </section>
+
+      <section class="filter-bar" id="filterBar" hidden>
+        <div class="filter-inner">
+          <div class="source-info" id="sourceInfo"></div>
+          <div class="filter-chips">
+            <button class="chip active" data-filter="all">&#10022; All</button>
+            <button class="chip" data-filter="funny">&#128516; Funny</button>
+            <button class="chip" data-filter="learning">&#129504; Learning</button>
+            <button class="chip" data-filter="information">&#128240; Info</button>
+            <button class="chip" data-filter="liked">&#10084;&#65039; Liked</button>
+          </div>
+          <div class="filter-row">
+            <div class="smart-toggle">
+              <label class="toggle-label">
+                <input type="checkbox" id="smartFilter" checked>
+                <span class="toggle-slider"></span>
+              </label>
+              <span class="toggle-text">Smart feed</span>
+            </div>
+            <button class="clear-data-btn" id="clearDataBtn" title="Reset learned preferences">Reset AI</button>
+          </div>
+        </div>
+      </section>
+
+      <main class="feed" id="feed" hidden>
+        <div class="feed-grid" id="feedGrid"></div>
+      </main>
+
+      <div class="empty-state" id="emptyState" hidden>
+        <p>No posts match this filter</p>
+      </div>
     </div>
 
     <div class="toast" id="toast" hidden></div>

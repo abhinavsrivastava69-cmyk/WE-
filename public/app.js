@@ -1,7 +1,248 @@
 pdfjsLib.GlobalWorkerOptions.workerSrc =
   'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
-// ── DOM ──
+// ══════════════════════════════════════
+//  USER SYSTEM
+// ══════════════════════════════════════
+
+const AVATAR_COLORS = [
+  '#ef4444','#f97316','#eab308','#22c55e','#06b6d4',
+  '#3b82f6','#6366f1','#8b5cf6','#a855f7','#ec4899',
+];
+
+function getAvatarColor(username) {
+  let hash = 0;
+  for (let i = 0; i < username.length; i++) hash = username.charCodeAt(i) + ((hash << 5) - hash);
+  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
+}
+
+function getInitials(username) {
+  return username.substring(0, 2).toUpperCase();
+}
+
+function getAllUsers() {
+  try {
+    return JSON.parse(localStorage.getItem('pg_users') || '{}');
+  } catch { return {}; }
+}
+
+function saveAllUsers(users) {
+  localStorage.setItem('pg_users', JSON.stringify(users));
+}
+
+function getCurrentUser() {
+  return localStorage.getItem('pg_current_user');
+}
+
+function setCurrentUser(username) {
+  localStorage.setItem('pg_current_user', username);
+}
+
+function clearCurrentUser() {
+  localStorage.removeItem('pg_current_user');
+}
+
+function createUser(username) {
+  const users = getAllUsers();
+  users[username] = {
+    createdAt: Date.now(),
+    lastLogin: Date.now()
+  };
+  saveAllUsers(users);
+  localStorage.setItem('pg_lib_' + username, JSON.stringify({}));
+  localStorage.setItem('pg_prefs_' + username, JSON.stringify({
+    likedKeywords:{}, dislikedKeywords:{},
+    likedCategories:{}, dislikedCategories:{},
+    likedTypes:{}, dislikedTypes:{},
+    likedIds:[], dislikedIds:[]
+  }));
+}
+
+function deleteUser(username) {
+  const users = getAllUsers();
+  delete users[username];
+  saveAllUsers(users);
+  localStorage.removeItem('pg_lib_' + username);
+  localStorage.removeItem('pg_prefs_' + username);
+}
+
+function userExists(username) {
+  return username in getAllUsers();
+}
+
+// ══════════════════════════════════════
+//  LOGIN SCREEN
+// ══════════════════════════════════════
+
+const loginScreen = document.getElementById('loginScreen');
+const mainApp = document.getElementById('mainApp');
+const usernameInput = document.getElementById('usernameInput');
+const usernameHint = document.getElementById('usernameHint');
+const loginBtn = document.getElementById('loginBtn');
+const loginBtnText = document.getElementById('loginBtnText');
+const existingUsersSection = document.getElementById('existingUsers');
+const userPills = document.getElementById('userPills');
+
+function isValidUsername(u) {
+  return /^[a-zA-Z0-9_]{3,20}$/.test(u);
+}
+
+usernameInput.addEventListener('input', () => {
+  const val = usernameInput.value.trim();
+  usernameHint.classList.remove('error', 'success');
+
+  if (val.length === 0) {
+    usernameHint.textContent = 'Letters, numbers & underscores. 3-20 chars.';
+    loginBtn.disabled = true;
+    return;
+  }
+
+  if (!isValidUsername(val)) {
+    usernameHint.textContent = 'Only letters, numbers & underscores. Min 3 chars.';
+    usernameHint.classList.add('error');
+    loginBtn.disabled = true;
+    return;
+  }
+
+  if (userExists(val)) {
+    usernameHint.textContent = 'Welcome back, ' + val + '!';
+    usernameHint.classList.add('success');
+    loginBtnText.textContent = 'Continue';
+  } else {
+    usernameHint.textContent = 'New account will be created';
+    usernameHint.classList.add('success');
+    loginBtnText.textContent = 'Get Started';
+  }
+  loginBtn.disabled = false;
+});
+
+usernameInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !loginBtn.disabled) loginBtn.click();
+});
+
+loginBtn.addEventListener('click', () => {
+  const username = usernameInput.value.trim();
+  if (!isValidUsername(username)) return;
+
+  if (!userExists(username)) {
+    createUser(username);
+  } else {
+    const users = getAllUsers();
+    users[username].lastLogin = Date.now();
+    saveAllUsers(users);
+  }
+
+  setCurrentUser(username);
+  enterApp(username);
+});
+
+function renderExistingUsers() {
+  const users = getAllUsers();
+  const names = Object.keys(users).sort((a, b) => (users[b].lastLogin || 0) - (users[a].lastLogin || 0));
+
+  if (names.length === 0) {
+    existingUsersSection.hidden = true;
+    return;
+  }
+
+  existingUsersSection.hidden = false;
+  userPills.innerHTML = '';
+
+  for (const name of names) {
+    const pill = document.createElement('button');
+    pill.className = 'user-pill';
+    const color = getAvatarColor(name);
+    const lib = getUserLibrary(name);
+    const postCount = Object.values(lib).reduce((s, src) => s + src.posts.length, 0);
+
+    pill.innerHTML =
+      '<span class="pill-avatar" style="background:' + color + '">' + getInitials(name) + '</span>' +
+      '<span>' + escapeHtml(name) + '</span>' +
+      (postCount > 0 ? '<span class="pill-stats">' + postCount + ' posts</span>' : '') +
+      '<span class="pill-remove" title="Delete account">&times;</span>';
+
+    pill.addEventListener('click', (e) => {
+      if (e.target.classList.contains('pill-remove')) return;
+      const allUsers = getAllUsers();
+      allUsers[name].lastLogin = Date.now();
+      saveAllUsers(allUsers);
+      setCurrentUser(name);
+      enterApp(name);
+    });
+
+    pill.querySelector('.pill-remove').addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (confirm('Delete user "' + name + '" and all their data?')) {
+        deleteUser(name);
+        if (getCurrentUser() === name) clearCurrentUser();
+        renderExistingUsers();
+      }
+    });
+
+    userPills.appendChild(pill);
+  }
+}
+
+function getUserLibrary(username) {
+  try { return JSON.parse(localStorage.getItem('pg_lib_' + username) || '{}'); } catch { return {}; }
+}
+
+function showLogin() {
+  loginScreen.hidden = false;
+  mainApp.hidden = true;
+  usernameInput.value = '';
+  usernameHint.textContent = 'Letters, numbers & underscores. 3-20 chars.';
+  usernameHint.classList.remove('error', 'success');
+  loginBtn.disabled = true;
+  loginBtnText.textContent = 'Get Started';
+  renderExistingUsers();
+  setTimeout(() => usernameInput.focus(), 100);
+}
+
+// ══════════════════════════════════════
+//  MAIN APP
+// ══════════════════════════════════════
+
+let currentUser = null;
+let library = {};
+let preferences = {};
+let currentFilter = 'all';
+let activeSource = 'all';
+let smartMode = true;
+
+function enterApp(username) {
+  currentUser = username;
+  loginScreen.hidden = true;
+  mainApp.hidden = false;
+
+  // Set user badge
+  const avatar = document.getElementById('userAvatar');
+  const uname = document.getElementById('userName');
+  avatar.textContent = getInitials(username);
+  avatar.style.background = getAvatarColor(username);
+  uname.textContent = username;
+
+  // Welcome message
+  const welcomeMsg = document.getElementById('welcomeMsg');
+  const lib = getUserLibrary(username);
+  const bookCount = Object.keys(lib).length;
+  if (bookCount > 0) {
+    welcomeMsg.innerHTML = '<h2>Hey, ' + escapeHtml(username) + '!</h2><p>' + bookCount + ' book' + (bookCount > 1 ? 's' : '') + ' in your library</p>';
+  } else {
+    welcomeMsg.innerHTML = '<h2>Welcome, ' + escapeHtml(username) + '!</h2><p>Upload your first PDF to get started</p>';
+  }
+
+  loadUserData();
+
+  if (Object.keys(library).length > 0) {
+    activeSource = 'all';
+    showFeedView();
+  } else {
+    resetToUpload();
+  }
+}
+
+// ── DOM refs ──
 const uploadArea = document.getElementById('uploadArea');
 const fileInput = document.getElementById('fileInput');
 const fileInputLibrary = document.getElementById('fileInputLibrary');
@@ -22,31 +263,15 @@ const smartFilterCheckbox = document.getElementById('smartFilter');
 const clearDataBtn = document.getElementById('clearDataBtn');
 const toast = document.getElementById('toast');
 
-// ── State ──
-let library = {};       // { sourceId: { name, pages, posts[], addedAt } }
-let preferences = {};   // { likedKeywords:{}, dislikedKeywords:{}, likedCategories:{}, dislikedCategories:{}, likedTypes:{}, dislikedTypes:{}, likedIds:[], dislikedIds:[] }
-let currentFilter = 'all';
-let activeSource = 'all';
-let smartMode = true;
-
-// ── Persistence with localStorage ──
+// ── Persistence (per user) ──
 function saveLibrary() {
-  try { localStorage.setItem('pg_library', JSON.stringify(library)); } catch(e) {}
+  if (!currentUser) return;
+  try { localStorage.setItem('pg_lib_' + currentUser, JSON.stringify(library)); } catch(e) {}
 }
-function loadLibrary() {
-  try {
-    const d = localStorage.getItem('pg_library');
-    if (d) library = JSON.parse(d);
-  } catch(e) {}
-}
-function savePreferences() {
-  try { localStorage.setItem('pg_prefs', JSON.stringify(preferences)); } catch(e) {}
-}
-function loadPreferences() {
-  try {
-    const d = localStorage.getItem('pg_prefs');
-    if (d) preferences = JSON.parse(d);
-  } catch(e) {}
+function loadUserData() {
+  if (!currentUser) return;
+  try { library = JSON.parse(localStorage.getItem('pg_lib_' + currentUser) || '{}'); } catch { library = {}; }
+  try { preferences = JSON.parse(localStorage.getItem('pg_prefs_' + currentUser) || '{}'); } catch { preferences = {}; }
   if (!preferences.likedKeywords) preferences.likedKeywords = {};
   if (!preferences.dislikedKeywords) preferences.dislikedKeywords = {};
   if (!preferences.likedCategories) preferences.likedCategories = {};
@@ -56,12 +281,16 @@ function loadPreferences() {
   if (!preferences.likedIds) preferences.likedIds = [];
   if (!preferences.dislikedIds) preferences.dislikedIds = [];
 }
+function savePreferences() {
+  if (!currentUser) return;
+  try { localStorage.setItem('pg_prefs_' + currentUser, JSON.stringify(preferences)); } catch(e) {}
+}
 
 // ── Learning model ──
 function extractKeywords(text) {
   const words = text.toLowerCase().replace(/[^a-z\s]/g, '').split(/\s+/);
-  const stopwords = new Set(['the','a','an','is','are','was','were','be','been','being','have','has','had','do','does','did','will','would','could','should','may','might','shall','can','need','dare','to','of','in','for','on','with','at','by','from','as','into','through','during','before','after','above','below','between','out','off','over','under','again','further','then','once','here','there','when','where','why','how','all','each','every','both','few','more','most','other','some','such','no','nor','not','only','own','same','so','than','too','very','just','because','but','and','or','if','while','that','this','these','those','it','its','they','them','their','he','she','his','her','we','our','you','your','i','me','my','what','which','who','whom','whose','about','also','up','one','two','three','many','much','like','get','got','make','made','take','new','know','see','come','think','look','want','give','use','find','tell','ask','work','seem','feel','try','leave','call','said','went','still','well','back','even','us','way','say','go','going']);
-  return words.filter(w => w.length > 3 && !stopwords.has(w));
+  const stop = new Set(['the','a','an','is','are','was','were','be','been','being','have','has','had','do','does','did','will','would','could','should','may','might','shall','can','need','dare','to','of','in','for','on','with','at','by','from','as','into','through','during','before','after','above','below','between','out','off','over','under','again','further','then','once','here','there','when','where','why','how','all','each','every','both','few','more','most','other','some','such','no','nor','not','only','own','same','so','than','too','very','just','because','but','and','or','if','while','that','this','these','those','it','its','they','them','their','he','she','his','her','we','our','you','your','i','me','my','what','which','who','whom','whose','about','also','up','one','two','three','many','much','like','get','got','make','made','take','new','know','see','come','think','look','want','give','use','find','tell','ask','work','seem','feel','try','leave','call','said','went','still','well','back','even','us','way','say','go','going']);
+  return words.filter(w => w.length > 3 && !stop.has(w));
 }
 
 function learnFromAction(post, action) {
@@ -70,13 +299,9 @@ function learnFromAction(post, action) {
   const kw = preferences[target + 'Keywords'];
   const cat = preferences[target + 'Categories'];
   const typ = preferences[target + 'Types'];
-
-  for (const w of keywords) {
-    kw[w] = (kw[w] || 0) + 1;
-  }
+  for (const w of keywords) kw[w] = (kw[w] || 0) + 1;
   cat[post.category] = (cat[post.category] || 0) + 1;
   typ[post.type] = (typ[post.type] || 0) + 1;
-
   if (action === 'like') {
     if (!preferences.likedIds.includes(post.id)) preferences.likedIds.push(post.id);
     preferences.dislikedIds = preferences.dislikedIds.filter(id => id !== post.id);
@@ -84,27 +309,21 @@ function learnFromAction(post, action) {
     if (!preferences.dislikedIds.includes(post.id)) preferences.dislikedIds.push(post.id);
     preferences.likedIds = preferences.likedIds.filter(id => id !== post.id);
   }
-
   savePreferences();
 }
 
 function scorePost(post) {
   if (preferences.likedIds.includes(post.id)) return 100;
   if (preferences.dislikedIds.includes(post.id)) return -100;
-
   let score = 0;
-  const keywords = extractKeywords(post.content);
-
-  for (const w of keywords) {
+  for (const w of extractKeywords(post.content)) {
     score += (preferences.likedKeywords[w] || 0) * 2;
     score -= (preferences.dislikedKeywords[w] || 0) * 3;
   }
-
   score += (preferences.likedCategories[post.category] || 0) * 5;
   score -= (preferences.dislikedCategories[post.category] || 0) * 7;
   score += (preferences.likedTypes[post.type] || 0) * 3;
   score -= (preferences.dislikedTypes[post.type] || 0) * 4;
-
   return score;
 }
 
@@ -131,10 +350,8 @@ const CARD_PALETTES = {
     { bg: 'linear-gradient(135deg, #f0fdf4, #dcfce7)', border: '#bbf7d0' },
   ]
 };
-
-function getCardPalette(post, index) {
-  const palettes = CARD_PALETTES[post.category] || CARD_PALETTES.information;
-  return palettes[index % palettes.length];
+function getCardPalette(post, i) {
+  return (CARD_PALETTES[post.category] || CARD_PALETTES.information)[i % 3];
 }
 
 // ── Upload interactions ──
@@ -150,19 +367,17 @@ fileInput.addEventListener('change', e => { if (e.target.files[0]) handleFile(e.
 fileInputLibrary.addEventListener('change', e => { if (e.target.files[0]) handleFile(e.target.files[0]); });
 addBookBtn.addEventListener('click', () => fileInputLibrary.click());
 
-smartFilterCheckbox.addEventListener('change', () => {
-  smartMode = smartFilterCheckbox.checked;
-  renderPosts();
+document.getElementById('logoutBtn').addEventListener('click', () => {
+  clearCurrentUser();
+  currentUser = null;
+  showLogin();
 });
 
+smartFilterCheckbox.addEventListener('change', () => { smartMode = smartFilterCheckbox.checked; renderPosts(); });
+
 clearDataBtn.addEventListener('click', () => {
-  if (confirm('Reset all learned preferences? Your uploaded PDFs will stay.')) {
-    preferences = {
-      likedKeywords:{}, dislikedKeywords:{},
-      likedCategories:{}, dislikedCategories:{},
-      likedTypes:{}, dislikedTypes:{},
-      likedIds:[], dislikedIds:[]
-    };
+  if (confirm('Reset all learned preferences for ' + currentUser + '? Your PDFs stay.')) {
+    preferences = { likedKeywords:{}, dislikedKeywords:{}, likedCategories:{}, dislikedCategories:{}, likedTypes:{}, dislikedTypes:{}, likedIds:[], dislikedIds:[] };
     savePreferences();
     showToast('Preferences reset');
     renderPosts();
@@ -178,7 +393,7 @@ document.querySelectorAll('.chip').forEach(chip => {
   });
 });
 
-// ── Processing UI ──
+// ── Processing ──
 function updateProcessing({ title, subtitle, progress }) {
   processingTitle.textContent = title;
   processingSubtitle.textContent = subtitle;
@@ -192,11 +407,7 @@ async function extractTextFromPDF(arrayBuffer) {
   let fullText = '';
   for (let i = 1; i <= totalPages; i++) {
     if (i % 10 === 0 || i === 1) {
-      updateProcessing({
-        title: 'Reading page ' + i + ' of ' + totalPages + '...',
-        subtitle: Math.round((i / totalPages) * 100) + '% done',
-        progress: Math.round((i / totalPages) * 60)
-      });
+      updateProcessing({ title: 'Reading page ' + i + ' of ' + totalPages + '...', subtitle: Math.round((i / totalPages) * 100) + '% done', progress: Math.round((i / totalPages) * 60) });
     }
     const page = await pdf.getPage(i);
     const content = await page.getTextContent();
@@ -228,7 +439,7 @@ function categorizeText(text) {
 
 function extractQuotes(text) {
   const quotes = [];
-  for (const p of [/["“„”]([^"“”„]{20,200})["“”„]/g]) {
+  for (const p of [/["“„‟]([^"“”„]{20,200})["”„‟]/g]) {
     let m; while ((m = p.exec(text)) !== null) quotes.push(m[1].trim());
   }
   return quotes;
@@ -279,9 +490,9 @@ function generatePosts(text, sourceTitle, sourceId) {
 
 // ── File handler ──
 async function handleFile(file) {
-  uploadSection.hidden = false;
-  uploadArea.hidden = true;
+  uploadSection.hidden = false; uploadArea.hidden = true;
   processing.hidden = false;
+  document.getElementById('welcomeMsg').hidden = true;
   updateProcessing({ title: 'Reading your PDF...', subtitle: 'Loading file', progress: 5 });
 
   try {
@@ -297,52 +508,43 @@ async function handleFile(file) {
     library[sourceId] = { name: sourceTitle, pages: numPages, posts, addedAt: Date.now() };
     saveLibrary();
 
-    updateProcessing({ title: 'Done!', subtitle: 'Generated ' + posts.length + ' posts from ' + numPages + ' pages', progress: 100 });
+    updateProcessing({ title: 'Done!', subtitle: posts.length + ' posts from ' + numPages + ' pages', progress: 100 });
 
-    setTimeout(() => {
-      activeSource = sourceId;
-      showFeedView();
-    }, 800);
+    setTimeout(() => { activeSource = 'all'; showFeedView(); }, 800);
   } catch (err) {
     console.error('PDF processing error:', err);
     processingTitle.textContent = 'Oops!';
     processingSubtitle.textContent = 'Could not read this PDF. Try another file.';
     progressFill.style.width = '0%';
-    setTimeout(() => { processing.hidden = true; uploadArea.hidden = false; }, 2500);
+    setTimeout(() => { processing.hidden = true; uploadArea.hidden = false; document.getElementById('welcomeMsg').hidden = false; }, 2500);
   }
 }
 
-// ── Library rendering ──
+// ── Library ──
 function renderLibrary() {
   libraryBooks.innerHTML = '';
   const sources = Object.entries(library).sort((a, b) => b[1].addedAt - a[1].addedAt);
   if (sources.length === 0) { libraryBar.hidden = true; return; }
-
   libraryBar.hidden = false;
 
-  // "All" pill
   const allPill = document.createElement('button');
   allPill.className = 'book-pill book-pill-all' + (activeSource === 'all' ? ' active' : '');
-  const totalPosts = sources.reduce((sum, [, s]) => sum + s.posts.length, 0);
-  allPill.innerHTML = 'All <span class="book-count">(' + totalPosts + ')</span>';
+  const total = sources.reduce((s, [, src]) => s + src.posts.length, 0);
+  allPill.innerHTML = 'All <span class="book-count">(' + total + ')</span>';
   allPill.addEventListener('click', () => { activeSource = 'all'; showFeedView(); });
   libraryBooks.appendChild(allPill);
 
   for (const [id, src] of sources) {
     const pill = document.createElement('button');
     pill.className = 'book-pill' + (activeSource === id ? ' active' : '');
-    pill.innerHTML = escapeHtml(src.name) + ' <span class="book-count">(' + src.posts.length + ')</span>' +
-      '<span class="book-remove" data-id="' + id + '">&times;</span>';
-    pill.addEventListener('click', (e) => {
-      if (e.target.classList.contains('book-remove')) return;
-      activeSource = id; showFeedView();
-    });
-    pill.querySelector('.book-remove').addEventListener('click', (e) => {
+    pill.innerHTML = escapeHtml(src.name) + ' <span class="book-count">(' + src.posts.length + ')</span><span class="book-remove" data-id="' + id + '">&times;</span>';
+    pill.addEventListener('click', e => { if (e.target.classList.contains('book-remove')) return; activeSource = id; showFeedView(); });
+    pill.querySelector('.book-remove').addEventListener('click', e => {
       e.stopPropagation();
-      if (confirm('Remove "' + src.name + '" from library?')) {
+      if (confirm('Remove "' + src.name + '"?')) {
         delete library[id]; saveLibrary();
         if (activeSource === id) activeSource = 'all';
-        if (Object.keys(library).length === 0) { resetToUpload(); return; }
+        if (!Object.keys(library).length) { resetToUpload(); return; }
         showFeedView();
       }
     });
@@ -350,22 +552,14 @@ function renderLibrary() {
   }
 }
 
-// ── Get all posts (across sources or for one) ──
 function getAllPosts() {
-  if (activeSource === 'all') {
-    return Object.values(library).flatMap(s => s.posts);
-  }
+  if (activeSource === 'all') return Object.values(library).flatMap(s => s.posts);
   return library[activeSource] ? library[activeSource].posts : [];
 }
 
-// ── Show feed view ──
 function showFeedView() {
-  uploadSection.hidden = true;
-  filterBar.hidden = false;
-  feed.hidden = false;
-  renderLibrary();
-  updateSourceInfo();
-  renderPosts();
+  uploadSection.hidden = true; filterBar.hidden = false; feed.hidden = false;
+  renderLibrary(); updateSourceInfo(); renderPosts();
 }
 
 function updateSourceInfo() {
@@ -373,17 +567,12 @@ function updateSourceInfo() {
   const counts = { funny: 0, learning: 0, information: 0 };
   posts.forEach(p => counts[p.category]++);
   const liked = preferences.likedIds.filter(id => posts.some(p => p.id === id)).length;
-
-  const srcName = activeSource === 'all' ? 'All Books' :
-    (library[activeSource] ? library[activeSource].name : '');
-  const pages = activeSource === 'all' ?
-    Object.values(library).reduce((s, src) => s + src.pages, 0) :
-    (library[activeSource] ? library[activeSource].pages : 0);
+  const srcName = activeSource === 'all' ? 'All Books' : (library[activeSource] ? library[activeSource].name : '');
+  const pages = activeSource === 'all' ? Object.values(library).reduce((s, src) => s + src.pages, 0) : (library[activeSource] ? library[activeSource].pages : 0);
 
   sourceInfo.innerHTML =
-    '<strong>' + escapeHtml(srcName) + '</strong> &middot; ' + pages + ' pages &middot; ' + posts.length + ' posts' +
-    ' &nbsp;|&nbsp; ' +
-    '<span style="color:#ef4444">&#128516; ' + counts.funny + '</span> &middot; ' +
+    '<strong>' + escapeHtml(srcName) + '</strong> &middot; ' + pages + ' pg &middot; ' + posts.length + ' posts' +
+    ' &nbsp;|&nbsp; <span style="color:#ef4444">&#128516; ' + counts.funny + '</span> &middot; ' +
     '<span style="color:#8b5cf6">&#129504; ' + counts.learning + '</span> &middot; ' +
     '<span style="color:#3b82f6">&#128240; ' + counts.information + '</span>' +
     (liked > 0 ? ' &middot; <span style="color:#22c55e">&#10084;&#65039; ' + liked + '</span>' : '');
@@ -396,6 +585,7 @@ function resetToUpload() {
   processing.hidden = true; filterBar.hidden = true;
   feed.hidden = true; emptyState.hidden = true; libraryBar.hidden = true;
   feedGrid.innerHTML = '';
+  document.getElementById('welcomeMsg').hidden = false;
   document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
   document.querySelector('[data-filter="all"]').classList.add('active');
 }
@@ -405,34 +595,21 @@ function renderPosts() {
   feedGrid.innerHTML = '';
   let posts = getAllPosts();
 
-  // Filter by category
-  if (currentFilter === 'liked') {
-    posts = posts.filter(p => preferences.likedIds.includes(p.id));
-  } else if (currentFilter !== 'all') {
-    posts = posts.filter(p => p.category === currentFilter);
-  }
+  if (currentFilter === 'liked') posts = posts.filter(p => preferences.likedIds.includes(p.id));
+  else if (currentFilter !== 'all') posts = posts.filter(p => p.category === currentFilter);
 
-  // Smart mode: hide disliked patterns
-  if (smartMode && currentFilter !== 'liked') {
-    posts = posts.filter(p => !shouldHidePost(p));
-  }
+  if (smartMode && currentFilter !== 'liked') posts = posts.filter(p => !shouldHidePost(p));
 
-  // Sort: liked first, then by score descending
   posts.sort((a, b) => {
-    const aLiked = preferences.likedIds.includes(a.id) ? 1 : 0;
-    const bLiked = preferences.likedIds.includes(b.id) ? 1 : 0;
-    if (aLiked !== bLiked) return bLiked - aLiked;
+    const al = preferences.likedIds.includes(a.id) ? 1 : 0;
+    const bl = preferences.likedIds.includes(b.id) ? 1 : 0;
+    if (al !== bl) return bl - al;
     return scorePost(b) - scorePost(a);
   });
 
-  if (posts.length === 0) {
-    emptyState.hidden = false; feed.hidden = true; return;
-  }
+  if (!posts.length) { emptyState.hidden = false; feed.hidden = true; return; }
   emptyState.hidden = true; feed.hidden = false;
-
-  posts.forEach((post, index) => {
-    feedGrid.appendChild(createPostCard(post, index));
-  });
+  posts.forEach((post, i) => feedGrid.appendChild(createPostCard(post, i)));
 }
 
 // ── Create card ──
@@ -464,66 +641,37 @@ function createPostCard(post, index) {
     '</div>' +
     '<div class="post-content">' + escapeHtml(post.content) + '</div>' +
     '<div class="post-footer">' +
-      '<span class="post-source">' +
-        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">' +
-          '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>' +
-          '<path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>' +
-        '</svg> ' + escapeHtml(post.source) +
-      '</span>' +
+      '<span class="post-source"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg> ' + escapeHtml(post.source) + '</span>' +
       '<div class="post-actions">' +
-        '<button class="action-btn like-action' + (isLiked ? ' liked' : '') + '" title="Like - show more like this">' +
-          '<svg width="20" height="20" viewBox="0 0 24 24" fill="' + (isLiked ? 'currentColor' : 'none') + '" stroke="currentColor" stroke-width="2">' +
-            '<path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3H14z"/>' +
-            '<path d="M7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/>' +
-          '</svg>' +
-        '</button>' +
-        '<button class="action-btn dislike-action' + (isDisliked ? ' disliked' : '') + '" title="Dislike - show less like this">' +
-          '<svg width="20" height="20" viewBox="0 0 24 24" fill="' + (isDisliked ? 'currentColor' : 'none') + '" stroke="currentColor" stroke-width="2">' +
-            '<path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3H10z"/>' +
-            '<path d="M17 2h3a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-3"/>' +
-          '</svg>' +
-        '</button>' +
-        '<button class="action-btn copy-action" title="Copy text">' +
-          '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">' +
-            '<rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>' +
-            '<path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>' +
-          '</svg>' +
-        '</button>' +
+        '<button class="action-btn like-action' + (isLiked ? ' liked' : '') + '" title="Like - more like this"><svg width="20" height="20" viewBox="0 0 24 24" fill="' + (isLiked ? 'currentColor' : 'none') + '" stroke="currentColor" stroke-width="2"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3H14z"/><path d="M7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg></button>' +
+        '<button class="action-btn dislike-action' + (isDisliked ? ' disliked' : '') + '" title="Dislike - less like this"><svg width="20" height="20" viewBox="0 0 24 24" fill="' + (isDisliked ? 'currentColor' : 'none') + '" stroke="currentColor" stroke-width="2"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3H10z"/><path d="M17 2h3a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-3"/></svg></button>' +
+        '<button class="action-btn copy-action" title="Copy"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>' +
       '</div>' +
     '</div>';
 
-  // Like
   card.querySelector('.like-action').addEventListener('click', function() {
     if (preferences.likedIds.includes(post.id)) {
       preferences.likedIds = preferences.likedIds.filter(id => id !== post.id);
-      this.classList.remove('liked');
-      this.querySelector('svg').setAttribute('fill', 'none');
+      this.classList.remove('liked'); this.querySelector('svg').setAttribute('fill', 'none');
       showToast('Removed from liked');
     } else {
       learnFromAction(post, 'like');
-      this.classList.add('liked');
-      this.querySelector('svg').setAttribute('fill', 'currentColor');
-      const disBtn = card.querySelector('.dislike-action');
-      disBtn.classList.remove('disliked');
-      disBtn.querySelector('svg').setAttribute('fill', 'none');
+      this.classList.add('liked'); this.querySelector('svg').setAttribute('fill', 'currentColor');
+      const dis = card.querySelector('.dislike-action');
+      dis.classList.remove('disliked'); dis.querySelector('svg').setAttribute('fill', 'none');
       animateButton(this);
-      showToast('Liked! Will show more like this');
+      showToast('Liked! Showing more like this');
     }
     savePreferences(); updateSourceInfo();
   });
 
-  // Dislike
   card.querySelector('.dislike-action').addEventListener('click', function() {
     learnFromAction(post, 'dislike');
     card.classList.add('removing');
     showToast('Got it! Showing less like this');
-    setTimeout(() => {
-      card.remove();
-      updateSourceInfo();
-    }, 400);
+    setTimeout(() => { card.remove(); updateSourceInfo(); }, 400);
   });
 
-  // Copy
   card.querySelector('.copy-action').addEventListener('click', function() {
     navigator.clipboard.writeText(post.content).then(() => {
       this.style.color = '#22c55e';
@@ -534,11 +682,10 @@ function createPostCard(post, index) {
   return card;
 }
 
-// ── Toast ──
+// ── Helpers ──
 let toastTimer;
 function showToast(msg) {
-  toast.textContent = msg;
-  toast.hidden = false;
+  toast.textContent = msg; toast.hidden = false;
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => { toast.hidden = true; }, 2000);
 }
@@ -554,13 +701,14 @@ function escapeHtml(str) {
   return d.innerHTML;
 }
 
-// ── Init ──
-loadLibrary();
-loadPreferences();
+// ══════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════
 
-if (Object.keys(library).length > 0) {
-  activeSource = 'all';
-  showFeedView();
+const savedUser = getCurrentUser();
+if (savedUser && userExists(savedUser)) {
+  enterApp(savedUser);
 } else {
-  resetToUpload();
+  clearCurrentUser();
+  showLogin();
 }
