@@ -1,5 +1,7 @@
-pdfjsLib.GlobalWorkerOptions.workerSrc =
-  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+if (typeof pdfjsLib !== 'undefined') {
+  pdfjsLib.GlobalWorkerOptions.workerSrc =
+    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+}
 
 // ══════════════════════════════════════
 //  USER SYSTEM
@@ -27,7 +29,7 @@ function getAllUsers() {
 }
 
 function saveAllUsers(users) {
-  localStorage.setItem('pg_users', JSON.stringify(users));
+  try { localStorage.setItem('pg_users', JSON.stringify(users)); } catch(e) {}
 }
 
 function getCurrentUser() {
@@ -35,7 +37,7 @@ function getCurrentUser() {
 }
 
 function setCurrentUser(username) {
-  localStorage.setItem('pg_current_user', username);
+  try { localStorage.setItem('pg_current_user', username); } catch(e) {}
 }
 
 function clearCurrentUser() {
@@ -49,13 +51,15 @@ function createUser(username) {
     lastLogin: Date.now()
   };
   saveAllUsers(users);
-  localStorage.setItem('pg_lib_' + username, JSON.stringify({}));
-  localStorage.setItem('pg_prefs_' + username, JSON.stringify({
-    likedKeywords:{}, dislikedKeywords:{},
-    likedCategories:{}, dislikedCategories:{},
-    likedTypes:{}, dislikedTypes:{},
-    likedIds:[], dislikedIds:[]
-  }));
+  try {
+    localStorage.setItem('pg_lib_' + username, JSON.stringify({}));
+    localStorage.setItem('pg_prefs_' + username, JSON.stringify({
+      likedKeywords:{}, dislikedKeywords:{},
+      likedCategories:{}, dislikedCategories:{},
+      likedTypes:{}, dislikedTypes:{},
+      likedIds:[], dislikedIds:[]
+    }));
+  } catch(e) {}
 }
 
 function deleteUser(username) {
@@ -121,19 +125,24 @@ usernameInput.addEventListener('keydown', (e) => {
 });
 
 loginBtn.addEventListener('click', () => {
-  const username = usernameInput.value.trim();
-  if (!isValidUsername(username)) return;
+  try {
+    const username = usernameInput.value.trim();
+    if (!isValidUsername(username)) return;
 
-  if (!userExists(username)) {
-    createUser(username);
-  } else {
-    const users = getAllUsers();
-    users[username].lastLogin = Date.now();
-    saveAllUsers(users);
+    if (!userExists(username)) {
+      createUser(username);
+    } else {
+      const users = getAllUsers();
+      users[username].lastLogin = Date.now();
+      saveAllUsers(users);
+    }
+
+    setCurrentUser(username);
+    enterApp(username);
+  } catch(err) {
+    console.error('Login error:', err);
+    alert('Something went wrong. Please try again.');
   }
-
-  setCurrentUser(username);
-  enterApp(username);
 });
 
 function renderExistingUsers() {
@@ -402,6 +411,7 @@ function updateProcessing({ title, subtitle, progress }) {
 
 // ── PDF extraction ──
 async function extractTextFromPDF(arrayBuffer) {
+  if (typeof pdfjsLib === 'undefined') throw new Error('PDF library not loaded. Please refresh the page.');
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
   const totalPages = pdf.numPages;
   let fullText = '';
