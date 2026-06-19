@@ -383,6 +383,17 @@ uploadArea.addEventListener('drop',function(e){e.preventDefault();uploadArea.cla
 fileInput.addEventListener('change',function(e){if(e.target.files[0])handleFile(e.target.files[0]);e.target.value='';});
 fileInputLibrary.addEventListener('change',function(e){if(e.target.files[0])handleFile(e.target.files[0]);e.target.value='';});
 addBookBtn.addEventListener('click',function(){fileInputLibrary.click();});
+document.getElementById('addLinkBtn').addEventListener('click',function(){
+  uploadSection.hidden=false;uploadArea.hidden=false;
+  document.getElementById('inputMethods').hidden=false;
+  document.getElementById('welcomeMsg').hidden=true;
+  processing.hidden=true;
+  var backBtn=document.getElementById('backToFeedBtn');
+  if(Object.keys(library).length>0) backBtn.hidden=false;
+  filterBar.hidden=true;feed.hidden=true;emptyState.hidden=true;
+  setTimeout(function(){document.getElementById('urlInput').focus();},100);
+});
+document.getElementById('backToFeedBtn').addEventListener('click',function(){showFeedView();});
 document.getElementById('logoutBtn').addEventListener('click',function(){clearCurrentUser();currentUser=null;library={};preferences={};showLogin();});
 smartFilterCheckbox.addEventListener('change',function(){smartMode=smartFilterCheckbox.checked;renderPosts();});
 clearDataBtn.addEventListener('click',function(){
@@ -417,8 +428,7 @@ function extractTextFromPDF(arrayBuffer) {
 }
 
 function handleFile(file) {
-  uploadSection.hidden=false;uploadArea.hidden=true;processing.hidden=false;
-  document.getElementById('welcomeMsg').hidden=true;
+  showProcessingState();
   updateProcessing({title:'Reading your PDF...',subtitle:'Loading',progress:5});
   file.arrayBuffer().then(function(buf){
     updateProcessing({title:'Parsing pages...',subtitle:'Extracting text',progress:15});
@@ -438,6 +448,126 @@ function handleFile(file) {
     setTimeout(function(){processing.hidden=true;uploadArea.hidden=false;document.getElementById('welcomeMsg').hidden=false;},2500);
   });
 }
+
+// ══════════════════════════════════════
+//  URL FETCH & TEXT PASTE
+// ══════════════════════════════════════
+
+var CORS_PROXIES = [
+  'https://api.allorigins.win/raw?url=',
+  'https://corsproxy.io/?'
+];
+
+function fetchUrl(url) {
+  var i = 0;
+  function tryProxy() {
+    if (i >= CORS_PROXIES.length) return Promise.reject(new Error('Could not fetch this URL. Try pasting the text directly instead.'));
+    var proxy = CORS_PROXIES[i++];
+    return fetch(proxy + encodeURIComponent(url)).then(function(r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.text();
+    }).catch(function() { return tryProxy(); });
+  }
+  return tryProxy();
+}
+
+function htmlToText(html) {
+  var doc = new DOMParser().parseFromString(html, 'text/html');
+  ['script','style','nav','header','footer','aside','iframe','noscript','svg','form','button','menu'].forEach(function(tag) {
+    doc.querySelectorAll(tag).forEach(function(el) { el.remove(); });
+  });
+  var content = doc.querySelector('article') || doc.querySelector('[role="main"]') || doc.querySelector('main') || doc.querySelector('.post-content') || doc.querySelector('.article-body') || doc.querySelector('.entry-content') || doc.querySelector('.story-body') || doc.body;
+  var text = content ? content.textContent : doc.body.textContent;
+  return text.replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
+}
+
+function getPageTitle(html, url) {
+  var doc = new DOMParser().parseFromString(html, 'text/html');
+  var og = doc.querySelector('meta[property="og:title"]');
+  if (og && og.content) return og.content.substring(0, 60);
+  var title = doc.querySelector('title');
+  if (title && title.textContent.trim()) return title.textContent.trim().substring(0, 60);
+  try { return new URL(url).hostname; } catch(e) { return 'Web Article'; }
+}
+
+function showProcessingState() {
+  uploadSection.hidden = false;
+  uploadArea.hidden = true;
+  document.getElementById('inputMethods').hidden = true;
+  document.getElementById('backToFeedBtn').hidden = true;
+  processing.hidden = false;
+  document.getElementById('welcomeMsg').hidden = true;
+}
+
+document.getElementById('extractUrlBtn').addEventListener('click', function() {
+  var url = document.getElementById('urlInput').value.trim();
+  if (!url) return;
+  if (!/^https?:\/\/.+/i.test(url)) { showToast('Enter a valid URL starting with http'); return; }
+
+  showProcessingState();
+  updateProcessing({title: 'Fetching page...', subtitle: url, progress: 10});
+
+  fetchUrl(url).then(function(html) {
+    updateProcessing({title: 'Extracting content...', subtitle: 'Reading the page', progress: 50});
+    var text = htmlToText(html);
+    if (text.length < 100) throw new Error('Not enough text content found on this page.');
+    var title = getPageTitle(html, url);
+    var sid = 'url-' + Date.now();
+    updateProcessing({title: 'Creating posts...', subtitle: 'Finding the best content', progress: 75});
+    var posts = generatePosts(text, title, sid);
+    if (!posts.length) throw new Error('Could not extract meaningful content from this page.');
+    library[sid] = {name: title, pages: 1, posts: posts, addedAt: Date.now(), type: 'url', url: url};
+    saveLibrary();
+    updateProcessing({title: 'Done!', subtitle: posts.length + ' posts from ' + title, progress: 100});
+    document.getElementById('urlInput').value = '';
+    setTimeout(function() { activeSource = 'all'; showFeedView(); }, 800);
+  }).catch(function(err) {
+    console.error(err);
+    processingTitle.textContent = 'Oops!';
+    processingSubtitle.textContent = err.message || 'Could not fetch this URL.';
+    progressFill.style.width = '0%';
+    setTimeout(function() {
+      processing.hidden = true; uploadArea.hidden = false;
+      document.getElementById('inputMethods').hidden = false;
+      document.getElementById('welcomeMsg').hidden = false;
+    }, 2500);
+  });
+});
+
+document.getElementById('urlInput').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') document.getElementById('extractUrlBtn').click();
+});
+
+document.getElementById('processTextBtn').addEventListener('click', function() {
+  var text = document.getElementById('textPasteArea').value.trim();
+  if (!text || text.length < 50) { showToast('Paste more text (at least a paragraph)'); return; }
+
+  var sourceName = document.getElementById('textSourceName').value.trim() || 'Pasted Text';
+  var sid = 'txt-' + Date.now();
+
+  showProcessingState();
+  updateProcessing({title: 'Creating posts...', subtitle: 'Analyzing content', progress: 40});
+
+  setTimeout(function() {
+    var posts = generatePosts(text, sourceName, sid);
+    if (!posts.length) {
+      processingTitle.textContent = 'Hmm...';
+      processingSubtitle.textContent = 'Could not extract meaningful content. Try pasting more text.';
+      progressFill.style.width = '0%';
+      setTimeout(function() {
+        processing.hidden = true; uploadArea.hidden = false;
+        document.getElementById('inputMethods').hidden = false;
+      }, 2500);
+      return;
+    }
+    library[sid] = {name: sourceName, pages: 1, posts: posts, addedAt: Date.now(), type: 'text'};
+    saveLibrary();
+    updateProcessing({title: 'Done!', subtitle: posts.length + ' posts created', progress: 100});
+    document.getElementById('textPasteArea').value = '';
+    document.getElementById('textSourceName').value = '';
+    setTimeout(function() { activeSource = 'all'; showFeedView(); }, 800);
+  }, 100);
+});
 
 // ══════════════════════════════════════
 //  LIBRARY & FEED
@@ -484,6 +614,8 @@ function resetToUpload(){
   uploadSection.hidden=false;uploadArea.hidden=false;processing.hidden=true;filterBar.hidden=true;
   feed.hidden=true;emptyState.hidden=true;libraryBar.hidden=true;feedGrid.innerHTML='';
   document.getElementById('welcomeMsg').hidden=false;
+  document.getElementById('inputMethods').hidden=false;
+  document.getElementById('backToFeedBtn').hidden=true;
   document.querySelectorAll('.chip').forEach(function(c){c.classList.remove('active');});
   document.querySelector('[data-filter="all"]').classList.add('active');
 }
