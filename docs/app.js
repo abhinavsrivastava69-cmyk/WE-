@@ -197,7 +197,7 @@ function getUserLibrary(username) {
 }
 
 function showLogin() {
-  loginScreen.hidden = false;
+  loginScreen.classList.remove('hidden');
   mainApp.hidden = true;
   usernameInput.value = '';
   usernameHint.textContent = 'Letters, numbers & underscores. 3-20 chars.';
@@ -221,7 +221,7 @@ let smartMode = true;
 
 function enterApp(username) {
   currentUser = username;
-  loginScreen.hidden = true;
+  loginScreen.classList.add('hidden');
   mainApp.hidden = false;
 
   // Set user badge
