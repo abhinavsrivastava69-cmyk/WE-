@@ -202,21 +202,6 @@ function getPostImage(post) {
   return photos[seed % photos.length];
 }
 
-function getMemeCaption(post) {
-  var text = post.content;
-  if (text.length <= 80) return { top: '', bottom: text };
-
-  var mid = Math.floor(text.length / 2);
-  var breakAt = text.lastIndexOf(' ', mid);
-  if (breakAt < 10) breakAt = text.indexOf(' ', mid);
-  if (breakAt < 0) breakAt = mid;
-
-  return {
-    top: text.substring(0, breakAt).trim(),
-    bottom: text.substring(breakAt).trim()
-  };
-}
-
 // ══════════════════════════════════════
 //  CONTENT EXTRACTION
 // ══════════════════════════════════════
@@ -228,9 +213,9 @@ function extractKeywords(text) {
 }
 
 var CATEGORY_KEYWORDS = {
-  funny: ['joke','humor','laugh','funny','comedy','hilarious','wit','sarcasm','irony','pun','satire','absurd','ridiculous','amusing','fool','silly','nonsense','parody','bizarre','crazy','weird','strange','awkward','embarrass','prank','surprise','unexpected','twist'],
-  learning: ['learn','study','research','theory','principle','concept','method','technique','strategy','framework','lesson','education','knowledge','understand','discover','experiment','hypothesis','analysis','insight','skill','practice','develop','improve','growth','teach','science','formula','theorem','definition','rule','process','system','approach','model','evidence','conclusion','observe','measure','explain','demonstrate'],
-  information: ['report','data','statistic','fact','news','update','announce','according','survey','percent','million','billion','government','policy','economy','market','industry','company','organization','country','world','global','national','international','official','source','history','event','population','crisis','conflict','agreement','decision','result','impact','change','trend','growth','decline','increase']
+  funny: ['joke','humor','laugh','funny','comedy','hilarious','wit','sarcasm','irony','pun','satire','absurd','ridiculous','amusing','fool','silly','nonsense','parody','bizarre','crazy','weird','strange','awkward','embarrass','prank','surprise','unexpected','twist','ironic','comical','clumsy','blunder','mishap','disaster'],
+  learning: ['learn','study','research','theory','principle','concept','method','technique','strategy','framework','lesson','education','knowledge','understand','discover','experiment','hypothesis','analysis','insight','skill','practice','develop','improve','growth','teach','science','formula','theorem','definition','rule','process','system','approach','model','evidence','conclusion','observe','measure','explain','demonstrate','brain','psychology','cognitive','behavior','pattern','mechanism','function'],
+  information: ['report','data','statistic','fact','news','update','announce','according','survey','percent','million','billion','government','policy','economy','market','industry','company','organization','country','world','global','national','international','official','source','history','event','population','crisis','conflict','agreement','decision','result','impact','change','trend','growth','decline','increase','century','founded','discovered']
 };
 
 function categorizeText(text) {
@@ -245,55 +230,111 @@ function categorizeText(text) {
   return 'information';
 }
 
+function classifyPostType(text) {
+  if (/\d+\s*%|\b\d{4}\b|million|billion|studies\s+show|research\s+(shows?|found|suggests?)|according\s+to|survey|percent|average|probability|times\s+(more|less|higher|lower)/i.test(text)) return 'fact';
+  if (/however|but\s+actually|contrary|surprising|unexpected|most\s+people|common\s+myth|wrong|misconception|turns\s+out|little[\s-]known|you.d\s+think|reality\s+is|in\s+fact|opposite/i.test(text)) return 'surprise';
+  if (/should|must|always|never|remember|avoid|try\s+to|make\s+sure|the\s+key|the\s+secret|best\s+way|how\s+to|first\s+step|rule\s+of|don.t|important\s+to|essential|tip/i.test(text)) return 'takeaway';
+  if (/means|defined|refers\s+to|is\s+when|concept\s+of|known\s+as|called|theory|principle|in\s+other\s+words|essentially|fundamentally|the\s+term/i.test(text)) return 'keyidea';
+  return 'wisdom';
+}
+
+var POST_HOOKS = {
+  fact: ['Did you know?', 'Fun fact', 'By the numbers', 'True story'],
+  surprise: ['Plot twist', 'Think again', 'Wait for it', 'Not what you\'d expect'],
+  takeaway: ['Remember this', 'Pro tip', 'Key lesson', 'Note to self'],
+  keyidea: ['Big idea', 'Core concept', 'In a nutshell', 'Here\'s the thing'],
+  wisdom: ['Think about this', 'Food for thought', 'Perspective shift', 'Let that sink in']
+};
+
+function getPostHook(type, seed) {
+  var hooks = POST_HOOKS[type] || POST_HOOKS.wisdom;
+  return hooks[seed % hooks.length];
+}
+
+function standaloneScore(text) {
+  var score = 0;
+  if (/^(this|that|these|those|it|they|he|she|its|his|her|their|such|the same|the above|as mentioned|as discussed|as noted|as we saw|in this chapter|here we)\b/i.test(text)) score -= 5;
+  if (/^(and |but |or |also |however,|moreover|furthermore|additionally|yet |so |thus |therefore|hence|consequently)/i.test(text)) score -= 3;
+  if (/\bfigure\s+\d|table\s+\d|chapter\s+\d|section\s+\d|see\s+page|see\s+above|see\s+below|op\.\s*cit|ibid|et\s+al/i.test(text)) score -= 5;
+  if (/^(the |a |an |in \d|when |people |most |every |one of|all |many |some |life |time |if you|we all|you |no one|what |according|studies|research|scientists|history|the world|humans|society|the brain|the key|the most|the first|for centuries|throughout|money|success|love|children|women|men|animals)/i.test(text)) score += 2;
+  if (/^[A-Z][^?]*[.!]$/.test(text.trim())) score += 1;
+  var words = text.split(/\s+/).length;
+  if (words >= 8 && words <= 40) score += 1;
+  return score;
+}
+
 function qualityScore(text) {
-  var score=0;
-  if(text.length>=60&&text.length<=400) score+=3;
-  else if(text.length>=40&&text.length<=600) score+=1;
-  else return -10;
-  if(/^[A-Z]/.test(text.trim())) score+=1;
-  if(/[.!?]["'"]?\s*$/.test(text.trim())) score+=2;
-  if(/^\d+\s*$|^[A-Z\s]{2,}$|copyright|all rights|isbn|acknowledgment|table of contents|bibliography|appendix|index\s*$/i.test(text.trim())) return -10;
-  var signal=/important|key|significant|essential|crucial|remarkable|notable|interesting|surprising|powerful|discover|reveal|transform|impact|secret|truth|reality|actually|however|nevertheless|contrary|unexpected|fascinating|striking|extraordinary/gi;
-  var m=text.match(signal); if(m) score+=Math.min(m.length*2,6);
+  var score = 0, t = text.trim();
+  if (t.length >= 40 && t.length <= 250) score += 4;
+  else if (t.length >= 30 && t.length <= 350) score += 2;
+  else if (t.length < 25 || t.length > 500) return -10;
+  if (/^[A-Z]/.test(t)) score += 1;
+  if (/[.!?]["”’]?\s*$/.test(t)) score += 2;
+  if (/^\d+\s*$|^[A-Z\s,.]{2,}$|copyright|all rights|isbn|acknowledgment|table of contents|bibliography|appendix|index\s*$|^\s*chapter\s+\d|^\s*part\s+(one|two|three|four|i|ii|iii|iv)\b/i.test(t)) return -10;
+  if (/\bpage\s+\d|^\s*\d+\s*$|^\s*www\.|^\s*http/i.test(t)) return -10;
+  var signal = /important|significant|essential|remarkable|interesting|surprising|powerful|discover|reveal|transform|impact|secret|truth|reality|actually|however|contrary|unexpected|fascinating|extraordinary|crucial|prove|evidence|demonstrate|cause|effect|result|lead to|because|reason|therefore|percent|million|billion|brain|human|world|history|science|study|found that|showed that|suggests that/gi;
+  var m = t.match(signal);
+  if (m) score += Math.min(m.length * 2, 8);
   return score;
 }
 
 function generatePosts(text, sourceTitle, sourceId) {
-  var posts=[], seen=new Set();
+  var posts = [], seen = new Set();
 
-  function addPost(content, type) {
-    content=content.replace(/\s+/g,' ').trim();
-    if(content.length<40||content.length>700) return;
-    var key=content.substring(0,60).toLowerCase();
-    if(seen.has(key)) return; seen.add(key);
-    posts.push({id:sourceId+'-'+posts.length, content:content, category:categorizeText(content), type:type, source:sourceTitle, sourceId:sourceId});
+  var cleaned = text.replace(/\f/g, '\n').replace(/\r\n/g, '\n').replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n');
+
+  var allSentences = cleaned
+    .replace(/([.!?])\s+/g, '$1\n')
+    .split('\n')
+    .map(function(s) { return s.replace(/\s+/g, ' ').trim(); })
+    .filter(function(s) { return s.length >= 30 && s.length <= 300; });
+
+  var scored = allSentences.map(function(s) {
+    var q = qualityScore(s), st = standaloneScore(s);
+    return { text: s, total: q + st, quality: q, standalone: st };
+  }).filter(function(x) { return x.quality >= 2 && x.standalone >= 0; });
+
+  var paragraphs = cleaned.split(/\n\s*\n/).filter(function(p) { return p.length > 60 && p.length < 2000; });
+  paragraphs.forEach(function(para) {
+    var sents = para.replace(/([.!?])\s+/g, '$1\n').split('\n').map(function(s) { return s.trim(); }).filter(function(s) { return s.length >= 20; });
+    for (var i = 0; i < sents.length - 1; i++) {
+      var combined = sents[i] + ' ' + sents[i + 1];
+      if (combined.length >= 50 && combined.length <= 300) {
+        var q = qualityScore(combined), st = standaloneScore(combined);
+        if (q >= 3 && st >= 0) scored.push({ text: combined, total: q + st + 1, quality: q, standalone: st });
+      }
+    }
+  });
+
+  scored.sort(function(a, b) { return b.total - a.total; });
+
+  var maxPosts = Math.min(scored.length, 80);
+  for (var i = 0; i < maxPosts; i++) {
+    var s = scored[i], key = s.text.substring(0, 50).toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+
+    var type = classifyPostType(s.text);
+    var hook = getPostHook(type, posts.length);
+    var category = categorizeText(s.text);
+    var visual = (posts.length % 3 === 0) ? 'gradient' : 'photo';
+
+    posts.push({
+      id: sourceId + '-' + posts.length,
+      hook: hook,
+      content: s.text,
+      category: category,
+      type: type,
+      visual: visual,
+      source: sourceTitle,
+      sourceId: sourceId
+    });
   }
 
-  var quoteRe=/[""„‟"]([^"""„"]{25,250})[""„‟"]/g, qm;
-  while((qm=quoteRe.exec(text))!==null){ if(posts.length>=15) break; var q=qm[1].trim(); if(qualityScore(q)>=0) addPost(q,'quote'); }
-
-  var paragraphs=text.split(/\n\s*\n/).map(function(p){return p.replace(/\s+/g,' ').trim();}).filter(function(p){return p.length>60&&p.length<2000;});
-  var scored=paragraphs.map(function(p){return{text:p,score:qualityScore(p)};}).filter(function(x){return x.score>=2;}).sort(function(a,b){return b.score-a.score;});
-
-  scored.forEach(function(item){
-    if(posts.length>=60) return;
-    if(item.text.length<=500){addPost(item.text,'insight');return;}
-    var sents=item.text.replace(/([.!?])\s+/g,'$1\n').split('\n').map(function(s){return s.trim();}).filter(function(s){return s.length>20&&s.length<400;});
-    if(!sents.length) return;
-    var best=sents.map(function(s){return{text:s,score:qualityScore(s)};}).sort(function(a,b){return b.score-a.score;}).slice(0,3).sort(function(a,b){return item.text.indexOf(a.text)-item.text.indexOf(b.text);});
-    var combined=best.map(function(s){return s.text;}).join(' ');
-    if(combined.length>=40&&combined.length<=600) addPost(combined,'insight');
-  });
-
-  var listRe=/(?:^|\n)\s*(?:\d+[.)]\s|[-•*]\s)(.{25,350})/g, lm;
-  while((lm=listRe.exec(text))!==null){ if(posts.length>=80) break; var cl=lm[1].trim(); if(qualityScore(cl)>=0) addPost(cl,'tip'); }
-
-  text.replace(/([.!?])\s+/g,'$1\n').split('\n').map(function(s){return s.replace(/\s+/g,' ').trim();}).filter(function(s){return s.length>50&&s.length<350;}).forEach(function(s){
-    if(posts.length>=90) return;
-    if(qualityScore(s)>=4) addPost(s,'insight');
-  });
-
-  for(var i=posts.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=posts[i];posts[i]=posts[j];posts[j]=t;}
+  for (var i = posts.length - 1; i > 0; i--) {
+    var j = Math.floor(Math.random() * (i + 1));
+    var t = posts[i]; posts[i] = posts[j]; posts[j] = t;
+  }
   return posts;
 }
 
@@ -471,78 +512,82 @@ function renderPosts() {
 }
 
 // ══════════════════════════════════════
-//  MEME-STYLE POST CARD
+//  INSTAGRAM-STYLE POST CARD
 // ══════════════════════════════════════
+
+function highlightText(text) {
+  var html = escapeHtml(text);
+  html = html.replace(/(\d[\d,\.]*\s*%)/g, '<strong>$1</strong>');
+  html = html.replace(/(\b\d[\d,\.]+\s*(million|billion|thousand|trillion|years|century|centuries|times))/gi, '<strong>$1</strong>');
+  return html;
+}
 
 function createPostCard(post, index) {
   var card = document.createElement('article');
   card.className = 'post-card';
   card.dataset.category = post.category;
-  card.dataset.type = post.type;
+  card.dataset.type = post.type || 'wisdom';
   card.dataset.id = post.id;
   card.style.animationDelay = Math.min(index * 0.05, 0.6) + 's';
 
   var isLiked = preferences.likedIds.indexOf(post.id) !== -1;
   var isDisliked = preferences.dislikedIds.indexOf(post.id) !== -1;
   var score = scorePost(post);
-  var imgUrl = getPostImage(post);
+  var hook = post.hook || '';
+  var visual = post.visual || 'photo';
+
+  var typeEmoji = {fact:'&#129327;',surprise:'&#128293;',takeaway:'&#128204;',keyidea:'&#128161;',wisdom:'&#10024;'};
+  var typeLabel = {fact:'DID YOU KNOW',surprise:'PLOT TWIST',takeaway:'KEY TAKEAWAY',keyidea:'BIG IDEA',wisdom:'THINK ABOUT THIS'};
   var catEmoji = {funny:'&#128514;',learning:'&#129504;',information:'&#128240;'};
   var catLabel = {funny:'Funny',learning:'Learning',information:'Info'};
-  var typeLabel = {quote:'&#128172; Quote',insight:'&#128161; Insight',tip:'&#128204; Tip'};
 
-  var isMeme = post.category === 'funny' || post.type === 'quote';
-
+  var contentHtml = highlightText(post.content);
   var html = '';
 
-  if (isMeme) {
-    // Meme style: image with text overlay
-    var caption = getMemeCaption(post);
+  if (visual === 'gradient') {
     html =
-      '<div class="post-meme-image">' +
-        '<img src="' + imgUrl + '" alt="" loading="lazy" onerror="this.style.display=\'none\'">' +
-        '<div class="meme-overlay">' +
-          (caption.top ? '<div class="meme-text-top">' + escapeHtml(caption.top) + '</div>' : '') +
-          '<div class="meme-text-bottom">' + escapeHtml(caption.bottom) + '</div>' +
+      '<div class="card-visual card-gradient-bg">' +
+        '<div class="card-type-badge">' + (typeEmoji[post.type]||'&#10024;') + ' ' + (typeLabel[post.type]||'INSIGHT') + '</div>' +
+        '<div class="card-text-area">' +
+          (hook ? '<p class="card-hook">' + escapeHtml(hook) + '</p>' : '') +
+          '<p class="card-main-text">' + contentHtml + '</p>' +
+        '</div>' +
+        '<div class="card-info-bar">' +
+          '<span class="card-tag">&#128218; ' + escapeHtml(post.source) + '</span>' +
+          '<span class="card-tag">' + (catEmoji[post.category]||'') + ' ' + (catLabel[post.category]||'') + '</span>' +
         '</div>' +
         (score > 5 && !isLiked ? '<div class="score-badge high">&#9733; For you</div>' : '') +
-      '</div>' +
-      '<div class="post-footer meme-footer">' +
-        '<div class="post-meta-inline">' +
-          '<span class="post-category-badge">' + (catEmoji[post.category]||'') + ' ' + (catLabel[post.category]||'') + '</span>' +
-          '<span class="post-type-badge">' + (typeLabel[post.type]||post.type) + '</span>' +
-        '</div>' +
-        '<div class="post-source">' + escapeHtml(post.source) + '</div>' +
-        '<div class="post-actions">' +
-          '<button class="action-btn like-action' + (isLiked?' liked':'') + '"><svg width="22" height="22" viewBox="0 0 24 24" fill="' + (isLiked?'currentColor':'none') + '" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></button>' +
-          '<button class="action-btn dislike-action' + (isDisliked?' disliked':'') + '"><svg width="20" height="20" viewBox="0 0 24 24" fill="' + (isDisliked?'currentColor':'none') + '" stroke="currentColor" stroke-width="2"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3H10z"/><path d="M17 2h3a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-3"/></svg></button>' +
-          '<button class="action-btn copy-action"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>' +
-        '</div>' +
       '</div>';
   } else {
-    // Magazine style: photo header + clean text below
+    var imgUrl = getPostImage(post);
     html =
-      '<div class="post-photo-header">' +
-        '<img src="' + imgUrl + '" alt="" loading="lazy" onerror="this.style.display=\'none\'">' +
-        '<div class="photo-overlay-bottom">' +
-          '<span class="post-category-badge">' + (catEmoji[post.category]||'') + ' ' + (catLabel[post.category]||'') + '</span>' +
-          '<span class="post-type-badge light">' + (typeLabel[post.type]||post.type) + '</span>' +
+      '<div class="card-visual card-photo">' +
+        '<img src="' + imgUrl + '" alt="" loading="lazy" onerror="this.parentElement.classList.add(\'img-failed\')">' +
+        '<div class="card-overlay">' +
+          '<div class="card-type-badge">' + (typeEmoji[post.type]||'&#10024;') + ' ' + (typeLabel[post.type]||'INSIGHT') + '</div>' +
+          '<div class="card-text-area">' +
+            (hook ? '<p class="card-hook">' + escapeHtml(hook) + '</p>' : '') +
+            '<p class="card-main-text">' + contentHtml + '</p>' +
+          '</div>' +
+          '<div class="card-info-bar">' +
+            '<span class="card-tag">&#128218; ' + escapeHtml(post.source) + '</span>' +
+            '<span class="card-tag">' + (catEmoji[post.category]||'') + ' ' + (catLabel[post.category]||'') + '</span>' +
+          '</div>' +
         '</div>' +
-        (score > 5 && !isLiked ? '<div class="score-badge high">&#9733; Recommended</div>' : '') +
-      '</div>' +
-      '<div class="post-content">' + escapeHtml(post.content) + '</div>' +
-      '<div class="post-footer">' +
-        '<span class="post-source"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg> ' + escapeHtml(post.source) + '</span>' +
-        '<div class="post-actions">' +
-          '<button class="action-btn like-action' + (isLiked?' liked':'') + '"><svg width="22" height="22" viewBox="0 0 24 24" fill="' + (isLiked?'currentColor':'none') + '" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></button>' +
-          '<button class="action-btn dislike-action' + (isDisliked?' disliked':'') + '"><svg width="20" height="20" viewBox="0 0 24 24" fill="' + (isDisliked?'currentColor':'none') + '" stroke="currentColor" stroke-width="2"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3H10z"/><path d="M17 2h3a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-3"/></svg></button>' +
-          '<button class="action-btn copy-action"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>' +
-        '</div>' +
+        (score > 5 && !isLiked ? '<div class="score-badge high">&#9733; For you</div>' : '') +
       '</div>';
   }
 
+  html +=
+    '<div class="card-actions-bar">' +
+      '<button class="action-btn like-action' + (isLiked?' liked':'') + '"><svg width="22" height="22" viewBox="0 0 24 24" fill="' + (isLiked?'currentColor':'none') + '" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></button>' +
+      '<button class="action-btn dislike-action' + (isDisliked?' disliked':'') + '"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>' +
+      '<span class="card-action-source">&#128218; ' + escapeHtml(post.source) + '</span>' +
+      '<button class="action-btn copy-action"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>' +
+    '</div>';
+
   card.innerHTML = html;
 
-  // Like button
   card.querySelector('.like-action').addEventListener('click', function() {
     var btn = this;
     if (preferences.likedIds.indexOf(post.id) !== -1) {
@@ -552,22 +597,19 @@ function createPostCard(post, index) {
     } else {
       learnFromAction(post, 'like');
       btn.classList.add('liked'); btn.querySelector('svg').setAttribute('fill','currentColor');
-      var dis = card.querySelector('.dislike-action');
-      dis.classList.remove('disliked'); dis.querySelector('svg').setAttribute('fill','none');
-      animateButton(btn); showToast('Liked! Similar posts boosted');
+      card.querySelector('.dislike-action').classList.remove('disliked');
+      animateButton(btn); showToast('Liked! More like this');
     }
     savePreferences(); updateSourceInfo();
   });
 
-  // Dislike button
   card.querySelector('.dislike-action').addEventListener('click', function() {
     learnFromAction(post, 'dislike');
     card.classList.add('removing');
-    showToast('Hidden. Less like this');
+    showToast('Got it. Less like this');
     setTimeout(function(){card.remove();updateSourceInfo();}, 400);
   });
 
-  // Copy button
   card.querySelector('.copy-action').addEventListener('click', function() {
     var btn = this;
     navigator.clipboard.writeText(post.content).then(function(){

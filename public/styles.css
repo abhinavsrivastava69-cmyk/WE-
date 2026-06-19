@@ -284,122 +284,121 @@ button, input, a { touch-action: manipulation; }
   to { opacity: 0; transform: translateX(100px) scale(0.9); max-height: 0; margin: 0; padding: 0; }
 }
 
-/* ── Meme Card — image with text overlay ── */
-.post-meme-image {
-  width: 100%; height: 320px; position: relative; overflow: hidden;
-  background: #111;
+/* ── Card Visual Area ── */
+.card-visual {
+  position: relative; width: 100%;
+  aspect-ratio: 4 / 5; overflow: hidden;
+  display: flex; flex-direction: column;
 }
-.post-meme-image img {
-  width: 100%; height: 100%; object-fit: cover;
-  filter: brightness(0.7) contrast(1.1);
-}
-.meme-overlay {
+
+/* Photo card */
+.card-photo { background: #111; }
+.card-photo img {
   position: absolute; inset: 0;
-  display: flex; flex-direction: column; justify-content: space-between;
-  padding: 18px 16px; pointer-events: none; z-index: 2;
-}
-.meme-text-top, .meme-text-bottom {
-  font-family: 'Impact', 'Anton', 'Inter', sans-serif;
-  font-size: 22px; font-weight: 900; text-transform: uppercase;
-  color: #fff; text-align: center; line-height: 1.2;
-  text-shadow:
-    2px 2px 0 #000, -2px -2px 0 #000,
-    2px -2px 0 #000, -2px 2px 0 #000,
-    0 2px 0 #000, 0 -2px 0 #000,
-    2px 0 0 #000, -2px 0 0 #000;
-  word-break: break-word;
-  max-width: 95%; margin: 0 auto;
-}
-.meme-text-top { align-self: flex-start; }
-.meme-text-bottom { align-self: flex-end; }
-
-/* ── Magazine Card — photo header + text ── */
-.post-photo-header {
-  width: 100%; height: 220px; position: relative; overflow: hidden;
-  background: #111;
-}
-.post-photo-header img {
   width: 100%; height: 100%; object-fit: cover;
 }
-.photo-overlay-bottom {
-  position: absolute; bottom: 0; left: 0; right: 0;
-  padding: 40px 16px 12px;
-  background: linear-gradient(transparent, rgba(0,0,0,0.7));
-  display: flex; align-items: center; gap: 8px; z-index: 2;
+.card-photo .card-overlay {
+  position: absolute; inset: 0;
+  background: linear-gradient(
+    to bottom,
+    rgba(0,0,0,0.4) 0%, rgba(0,0,0,0.05) 35%,
+    rgba(0,0,0,0.05) 50%, rgba(0,0,0,0.65) 100%
+  );
+  display: flex; flex-direction: column;
+  padding: 20px; z-index: 2;
+}
+.card-photo.img-failed {
+  background: linear-gradient(135deg, #1a1a2e, #16213e, #0f3460);
+}
+.card-photo.img-failed .card-overlay {
+  background: none;
 }
 
-/* ── Meme footer ── */
-.meme-footer {
-  padding: 10px 16px 12px;
-  display: flex; flex-wrap: wrap; align-items: center;
-  justify-content: space-between; gap: 8px;
+/* Gradient card */
+.card-gradient-bg {
+  padding: 24px 20px;
+  display: flex; flex-direction: column;
 }
-.post-meta-inline {
-  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+.post-card[data-category="funny"] .card-gradient-bg {
+  background: linear-gradient(135deg, #ff6b35, #f7418f, #fc5c9c);
 }
-.meme-footer .post-source {
-  font-size: 11px; flex-basis: 100%; margin-top: 2px;
+.post-card[data-category="learning"] .card-gradient-bg {
+  background: linear-gradient(135deg, #4f46e5, #7c3aed, #a855f7);
 }
-.meme-footer .post-actions { margin-left: auto; }
-
-/* ── Badge light variant (on photo overlay) ── */
-.post-type-badge.light {
-  background: rgba(255,255,255,0.2); color: #fff;
-  backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+.post-card[data-category="information"] .card-gradient-bg {
+  background: linear-gradient(135deg, #0891b2, #2563eb, #4338ca);
 }
 
-.post-meta {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 14px 18px 0;
+/* Type badge */
+.card-type-badge {
+  align-self: flex-start;
+  font-size: 11px; font-weight: 800;
+  text-transform: uppercase; letter-spacing: 1.5px;
+  color: #fff;
+  background: rgba(255,255,255,0.15);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  padding: 6px 14px; border-radius: 20px;
 }
-.post-category-badge {
-  display: flex; align-items: center; gap: 6px;
-  font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
-  color: #fff; padding: 4px 10px; border-radius: 12px;
+
+/* Text area */
+.card-text-area {
+  flex: 1; display: flex; flex-direction: column;
+  justify-content: center; align-items: center;
+  text-align: center; padding: 16px 0;
 }
-.post-card[data-category="funny"] .post-category-badge {
-  background: linear-gradient(135deg, #f97316, #ef4444);
+.card-hook {
+  font-size: 12px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 2px;
+  color: rgba(255,255,255,0.65);
+  margin-bottom: 14px;
 }
-.post-card[data-category="learning"] .post-category-badge {
-  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+.card-main-text {
+  font-size: 17px; font-weight: 600;
+  color: #fff; line-height: 1.6;
+  max-width: 95%;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.3);
 }
-.post-card[data-category="information"] .post-category-badge {
-  background: linear-gradient(135deg, #06b6d4, #3b82f6);
+.card-main-text strong {
+  color: #fbbf24; font-weight: 800;
 }
-.post-type-badge {
-  font-size: 11px; font-weight: 600; padding: 3px 10px;
-  border-radius: 10px; background: var(--bg); color: var(--text-secondary);
+.card-gradient-bg .card-main-text {
+  font-size: 19px; font-weight: 700;
 }
-.post-content {
-  padding: 14px 18px; font-size: 15px; line-height: 1.7;
-  color: var(--text); word-wrap: break-word;
+
+/* Info bar */
+.card-info-bar {
+  display: flex; align-items: center;
+  justify-content: space-between;
+  margin-top: auto; gap: 8px;
 }
-.post-card[data-type="quote"] .post-content {
-  font-style: italic; font-size: 16px; position: relative; padding-left: 28px;
+.card-tag {
+  font-size: 11px; font-weight: 600;
+  color: rgba(255,255,255,0.8);
+  background: rgba(255,255,255,0.12);
+  padding: 4px 10px; border-radius: 12px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  max-width: 60%;
 }
-.post-card[data-type="quote"] .post-content::before {
-  content: '\201C'; position: absolute; left: 14px; top: 10px;
-  font-size: 32px; font-style: normal; font-weight: 800; opacity: 0.15; line-height: 1;
+
+/* Actions bar */
+.card-actions-bar {
+  display: flex; align-items: center;
+  padding: 10px 16px; gap: 8px;
 }
-.post-footer {
-  padding: 0 18px 14px; display: flex; align-items: center; justify-content: space-between;
+.card-actions-bar .action-btn {
+  width: 36px; height: 36px; border-radius: 50%; border: none;
+  background: var(--bg); color: var(--text-secondary);
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  transition: all 0.2s; font-size: 16px;
 }
-.post-source {
-  font-size: 12px; color: var(--text-secondary); font-weight: 500;
-  display: flex; align-items: center; gap: 6px;
-  max-width: 55%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+.card-actions-bar .action-btn:hover { background: var(--accent-light); color: var(--accent); }
+.card-actions-bar .action-btn.liked { background: #fee2e2; color: #ef4444; }
+.card-actions-bar .action-btn.disliked { background: #fee2e2; color: var(--red); }
+.card-action-source {
+  flex: 1; font-size: 12px; color: var(--text-secondary);
+  font-weight: 500; overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap;
 }
-.post-source svg { opacity: 0.5; flex-shrink: 0; }
-.post-actions { display: flex; gap: 6px; }
-.action-btn {
-  width: 38px; height: 38px; border-radius: 50%; border: none;
-  background: var(--bg); color: var(--text-secondary); cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
-  transition: all 0.2s; font-size: 18px;
-}
-.action-btn:hover { background: var(--accent-light); color: var(--accent); }
-.action-btn.liked { background: #dcfce7; color: var(--green); }
-.action-btn.disliked { background: #fee2e2; color: var(--red); }
 
 /* ── Score badge ── */
 .score-badge {
@@ -430,18 +429,16 @@ button, input, a { touch-action: manipulation; }
   :root { --max-width: 520px; }
   .upload-section { padding: 80px 20px; }
   .upload-area { padding: 80px 60px; }
-  .post-meme-image { height: 380px; }
-  .post-photo-header { height: 260px; }
-  .meme-text-top, .meme-text-bottom { font-size: 26px; }
+  .card-main-text { font-size: 19px; }
+  .card-gradient-bg .card-main-text { font-size: 21px; }
 }
 @media (max-width: 380px) {
   .header-inner { padding: 12px 16px; }
   .filter-chips { gap: 6px; }
   .chip { padding: 6px 12px; font-size: 12px; }
-  .post-content { font-size: 14px; }
-  .post-meme-image { height: 260px; }
-  .post-photo-header { height: 180px; }
-  .meme-text-top, .meme-text-bottom { font-size: 18px; }
+  .card-main-text { font-size: 15px; }
+  .card-gradient-bg .card-main-text { font-size: 16px; }
+  .card-type-badge { font-size: 10px; padding: 5px 10px; }
 }
 @media (max-width: 768px) {
   .feed-grid { scroll-snap-type: y proximity; }
