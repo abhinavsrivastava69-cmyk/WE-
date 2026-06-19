@@ -38,8 +38,6 @@ button, input, a { touch-action: manipulation; }
   background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
   padding: 20px; z-index: 9999; overflow-y: auto;
 }
-.login-screen.hidden { display: none; }
-}
 .login-card {
   background: var(--card-bg); border-radius: 24px;
   padding: 48px 36px; width: 100%; max-width: 400px;
