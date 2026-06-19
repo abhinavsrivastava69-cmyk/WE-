@@ -121,9 +121,7 @@ button, input, a { touch-action: manipulation; }
   background: linear-gradient(135deg, #6366f1, #a855f7, #ec4899);
   -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
 }
-.user-badge {
-  display: flex; align-items: center; gap: 8px;
-}
+.user-badge { display: flex; align-items: center; gap: 8px; }
 .user-avatar {
   width: 32px; height: 32px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
@@ -146,9 +144,7 @@ button, input, a { touch-action: manipulation; }
 .welcome-msg p { font-size: 14px; color: var(--text-secondary); }
 
 /* ── Library bar ── */
-.library-bar {
-  background: var(--card-bg); border-bottom: 1px solid var(--border);
-}
+.library-bar { background: var(--card-bg); border-bottom: 1px solid var(--border); }
 .library-inner {
   max-width: var(--max-width); margin: 0 auto; padding: 12px 20px;
   display: flex; align-items: center; gap: 10px;
@@ -165,9 +161,7 @@ button, input, a { touch-action: manipulation; }
 }
 .book-pill.active { background: var(--text); color: #fff; border-color: var(--text); }
 .book-pill .book-count { opacity: 0.6; font-weight: 400; }
-.book-pill .book-remove {
-  margin-left: 4px; opacity: 0.4; cursor: pointer; font-size: 14px;
-}
+.book-pill .book-remove { margin-left: 4px; opacity: 0.4; cursor: pointer; font-size: 14px; }
 .book-pill .book-remove:hover { opacity: 1; color: var(--red); }
 .book-pill-all { font-weight: 700; }
 .add-book-btn {
@@ -281,9 +275,7 @@ button, input, a { touch-action: manipulation; }
   position: relative;
 }
 .post-card:hover { transform: translateY(-2px); box-shadow: var(--card-shadow-hover); }
-.post-card.removing {
-  animation: slideOut 0.4s ease forwards;
-}
+.post-card.removing { animation: slideOut 0.4s ease forwards; }
 @keyframes fadeInUp {
   from { opacity: 0; transform: translateY(20px); }
   to { opacity: 1; transform: translateY(0); }
@@ -291,11 +283,27 @@ button, input, a { touch-action: manipulation; }
 @keyframes slideOut {
   to { opacity: 0; transform: translateX(100px) scale(0.9); max-height: 0; margin: 0; padding: 0; }
 }
-.post-card-header { padding: 4px; }
-.post-gradient-bar { height: 4px; border-radius: 2px; }
-.post-card[data-category="funny"] .post-gradient-bar { background: var(--funny-gradient); }
-.post-card[data-category="learning"] .post-gradient-bar { background: var(--learning-gradient); }
-.post-card[data-category="information"] .post-gradient-bar { background: var(--info-gradient); }
+
+/* ── Post Cover Art ── */
+.post-cover {
+  width: 100%; height: 180px; position: relative; overflow: hidden;
+  display: flex; align-items: center; justify-content: center;
+}
+.post-cover svg { width: 100%; height: 100%; }
+.post-cover-emoji {
+  position: absolute; font-size: 48px;
+  filter: drop-shadow(0 2px 8px rgba(0,0,0,0.2));
+  z-index: 2;
+}
+.post-cover-title {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  padding: 30px 18px 12px;
+  background: linear-gradient(transparent, rgba(0,0,0,0.6));
+  color: #fff; font-size: 11px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 1px;
+  z-index: 3;
+}
+
 .post-meta {
   display: flex; align-items: center; justify-content: space-between;
   padding: 14px 18px 0;
@@ -303,22 +311,23 @@ button, input, a { touch-action: manipulation; }
 .post-category-badge {
   display: flex; align-items: center; gap: 6px;
   font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
+  color: #fff; padding: 4px 10px; border-radius: 12px;
 }
 .post-card[data-category="funny"] .post-category-badge {
-  color: #fff; background: linear-gradient(135deg, #f97316, #ef4444); padding: 4px 10px; border-radius: 12px;
+  background: linear-gradient(135deg, #f97316, #ef4444);
 }
 .post-card[data-category="learning"] .post-category-badge {
-  color: #fff; background: linear-gradient(135deg, #6366f1, #8b5cf6); padding: 4px 10px; border-radius: 12px;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
 }
 .post-card[data-category="information"] .post-category-badge {
-  color: #fff; background: linear-gradient(135deg, #06b6d4, #3b82f6); padding: 4px 10px; border-radius: 12px;
+  background: linear-gradient(135deg, #06b6d4, #3b82f6);
 }
 .post-type-badge {
   font-size: 11px; font-weight: 600; padding: 3px 10px;
   border-radius: 10px; background: var(--bg); color: var(--text-secondary);
 }
 .post-content {
-  padding: 16px 18px; font-size: 15px; line-height: 1.7;
+  padding: 14px 18px; font-size: 15px; line-height: 1.7;
   color: var(--text); word-wrap: break-word;
 }
 .post-card[data-type="quote"] .post-content {
@@ -334,8 +343,9 @@ button, input, a { touch-action: manipulation; }
 .post-source {
   font-size: 12px; color: var(--text-secondary); font-weight: 500;
   display: flex; align-items: center; gap: 6px;
+  max-width: 55%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.post-source svg { opacity: 0.5; }
+.post-source svg { opacity: 0.5; flex-shrink: 0; }
 .post-actions { display: flex; gap: 6px; }
 .action-btn {
   width: 38px; height: 38px; border-radius: 50%; border: none;
@@ -350,11 +360,10 @@ button, input, a { touch-action: manipulation; }
 /* ── Score badge ── */
 .score-badge {
   position: absolute; top: 12px; right: 14px;
-  font-size: 10px; font-weight: 700; padding: 2px 8px;
-  border-radius: 8px; opacity: 0.7;
+  font-size: 10px; font-weight: 700; padding: 3px 10px;
+  border-radius: 8px; z-index: 4;
 }
-.score-badge.high { background: #dcfce7; color: #166534; }
-.score-badge.low { background: #fef3c7; color: #92400e; }
+.score-badge.high { background: rgba(220,252,231,0.95); color: #166534; }
 
 /* ── Toast ── */
 .toast {
@@ -377,12 +386,14 @@ button, input, a { touch-action: manipulation; }
   :root { --max-width: 520px; }
   .upload-section { padding: 80px 20px; }
   .upload-area { padding: 80px 60px; }
+  .post-cover { height: 220px; }
 }
 @media (max-width: 380px) {
-  .header-inner { flex-direction: column; gap: 2px; padding: 12px 16px; }
+  .header-inner { padding: 12px 16px; }
   .filter-chips { gap: 6px; }
   .chip { padding: 6px 12px; font-size: 12px; }
   .post-content { font-size: 14px; }
+  .post-cover { height: 150px; }
 }
 @media (max-width: 768px) {
   .feed-grid { scroll-snap-type: y proximity; }
